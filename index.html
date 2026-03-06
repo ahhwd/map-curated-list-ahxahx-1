@@ -51,6 +51,45 @@
         .place-name { font-weight: 600; font-size: 14px; }
         .place-address { font-size: 12px; color: #666; margin-top: 2px; }
         #map { flex: 1; height: 100%; }
+        #search-box {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        #search-box textarea {
+            width: 100%;
+            height: 80px;
+            padding: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            resize: vertical;
+        }
+        #search-box textarea:focus {
+            outline: none;
+            border-color: #4285f4;
+            box-shadow: 0 0 0 2px rgba(66,133,244,0.2);
+        }
+        #search-btn {
+            width: 100%;
+            margin-top: 8px;
+            padding: 8px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            background: #4285f4;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #search-btn:hover { background: #3367d6; }
+        #search-btn:disabled { background: #aaa; cursor: not-allowed; }
+        #search-status {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #666;
+        }
         @media (max-width: 768px) {
             #container { flex-direction: column; }
             #sidebar { width: 100%; height: 200px; order: 2; }
@@ -62,27 +101,34 @@
     <div id="container">
         <div id="sidebar">
             <h2 id="sidebar-title"></h2>
+            <div id="search-box">
+                <textarea id="search-input" placeholder="輸入地點名稱，一行一個&#10;例如：&#10;東京鐵塔&#10;淺草寺"></textarea>
+                <button id="search-btn" onclick="searchPlaces()">查詢地點</button>
+                <div id="search-status"></div>
+            </div>
             <div id="sidebar-list"></div>
         </div>
         <div id="map"></div>
     </div>
     <script>
+        var gMap, gMarkers = [], gInfoWindows = [], gService;
+
         var PLACES = [{"name": "GumGum Beer & Wings", "query": "gumgum beer&wings信義店 台北", "address": "No. 38號, Alley 11, Lane 473, Guangfu S Rd, Xinyi District, Taipei City, Taiwan 110", "lat": 25.033894, "lng": 121.559154, "place_id": "ChIJe-0b5smrQjQRptESpVeIl9g"}, {"name": "GUMGUM Neike Branch", "query": "GumGum Not Only Beer & Wings 雞翅啤酒吧 內科店 台北", "address": "No. 68號, Lane 3, Jihu Rd, Neihu District, Taipei City, Taiwan 11492", "lat": 25.0806163, "lng": 121.5668549, "place_id": "ChIJ_arISaqtQjQR_wwFFgzwBZ0"}, {"name": "GUMGUM EGG 剛剛小巨蛋店", "query": "GUMGUM EGG 剛剛小巨蛋店 台北", "address": "美仁里南京東路四段2號 1樓1號, Songshan District, Taipei City, Taiwan 105037", "lat": 25.050599, "lng": 121.5494503, "place_id": "ChIJmwtxhp6rQjQRTmQlmgquESA"}, {"name": "Meihao Rizi Cafe", "query": "美好日子咖啡館 台北", "address": "106, Taiwan, Taipei City, Da’an District, Guangfu S Rd, 102號1樓", "lat": 25.0435224, "lng": 121.5571183, "place_id": "ChIJIaxMemGrQjQRe0gBZ44_zd4"}, {"name": "Vagus 餐酒館 Lounge", "query": "Vagus 餐酒館 Lounge 台北", "address": "10441, Taiwan, Taipei City, Zhongshan District, Tianjin St, 57號B1", "lat": 25.0510298, "lng": 121.523379, "place_id": "ChIJY_qQ7_6pQjQRPv9PR1TxgGM"}, {"name": "朱里昂露營風格餐廳", "query": "朱里昂露營風格餐廳 台北", "address": "No. 三號, Guotai St, Shilin District, Taipei City, Taiwan 111", "lat": 25.1361012, "lng": 121.5431953, "place_id": "ChIJj8-Q64ipQjQRUCp5LngvtmQ"}, {"name": "火月 咖啡.餐.酒館 F.M. Cafe & Bistro", "query": "風格二店咖啡餐酒館 台北", "address": "No. 28號, Lane 33, Section 1, Zhongshan N Rd, Zhongshan District, Taipei City, Taiwan 104", "lat": 25.048611, "lng": 121.52236, "place_id": "ChIJx0bCJy6pQjQRGFbyiEYDeqQ"}, {"name": "MEET遇見共享空間", "query": "Meet遇見共享空間 台北", "address": "251, Taiwan, New Taipei City, Tamsui District, Zhongshan Rd, 126號B1", "lat": 25.171104, "lng": 121.441909, "place_id": "ChIJn_ZdgB-lQjQRI8jLzTV172Q"}, {"name": "GŪLŪ GURU 信義", "query": "新光三越A9 B1 GŪLŪ GURU 台北", "address": "B1, 香緹廣場旁No. 9號, Songshou Rd, Xinyi District, Taipei City, Taiwan 110", "lat": 25.0366485, "lng": 121.5667595, "place_id": "ChIJfcp3Kk2rQjQREs92CZO2xVU"}, {"name": "TRANSIT", "query": "Transit 餐廳 台北", "address": "No. 11號, Songgao Rd, Xinyi District, Taipei City, Taiwan 110", "lat": 25.03992, "lng": 121.5654085, "place_id": "ChIJDeGMCQCrQjQRl0Z3CzGSxWg"}, {"name": "Crafted - Beer & Co.", "query": "Crafted Beer & Co. 台北", "address": "No. 1號, Yumen St, Zhongshan District, Taipei City, Taiwan 10491", "lat": 25.0698304, "lng": 121.5220533, "place_id": "ChIJYahHGk-pQjQRXZHXms4Aet0"}, {"name": "啤酒土狗-Beer to Go 精釀啤酒專賣店Craft Beer", "query": "啤酒土狗 台北", "address": "No. 6-9號, Section 1, Xinsheng S Rd, Zhongzheng District, Taipei City, Taiwan 100", "lat": 25.043726, "lng": 121.5322549, "place_id": "ChIJY0N5t3ypQjQRf8nbN9ao9_8"}, {"name": "CHEN JUO COFFEE｜宸酌咖啡｜精品咖啡 · 虹吸咖啡 · 精釀啤酒 ｜不定期外燴活動公休，詳細資訊請見IG公告", "query": "宸酌咖啡 台北", "address": "No. 449-1號, Guangfu S Rd, Xinyi District, Taipei City, Taiwan 110", "lat": 25.0349737, "lng": 121.5577186, "place_id": "ChIJEw6lbwCrQjQRrXkB-KOb4zQ"}, {"name": "La Rotisserie", "query": "雅意 餐廳 台北", "address": "103, Taiwan, Taipei City, Datong District, Section 1, Chengde Rd, 3號6樓", "lat": 25.0491433, "lng": 121.5168672, "place_id": "ChIJrYYudW2pQjQRrhgYhBIJW0c"}, {"name": "Beer Rush Taproom", "query": "Beer Rush 台北", "address": "No. 40號, Lane 51, Section 1, Da'an Rd, Da’an District, Taipei City, Taiwan 106", "lat": 25.0429721, "lng": 121.5477427, "place_id": "ChIJy3dlIASrQjQRBCtrdmzv14c"}, {"name": "叢林開始酒鬼超市JUNGLE PLAY-Taipei", "query": "叢林開始酒鬼 台北", "address": "110405, Taiwan, Taipei City, Xinyi District, Songshou Rd, 12號叢林開始11F", "lat": 25.0353112, "lng": 121.5659815, "place_id": "ChIJZSfgtC-rQjQR4cSfeUqIUOQ"}, {"name": "民生早午餐 by 貓下去", "query": "民生早午餐by貓下去 台北", "address": "105, Taiwan, Taipei City, Songshan District, Section 3, Minsheng E Rd, 135號7樓", "lat": 25.0580934, "lng": 121.5484515, "place_id": "ChIJh-JGD9-rQjQRFzGI7LdMUKY"}, {"name": "GB Brewery Restaurant – Taipei HsinYi Store", "query": "GBA吉比鮮釀餐廳 信義店 台北", "address": "110, Taiwan, Taipei City, Xinyi District, Songshou Rd, 11號2樓", "lat": 25.0371587, "lng": 121.5671263, "place_id": "ChIJfY_HnrCrQjQRxus0Ujf7Q24"}, {"name": "FRANK Taipei", "query": "Frank Taipei", "address": "110, Taiwan, Taipei City, Xinyi District, Songshou Rd, 12號ATT 4 FUN 10 樓", "lat": 25.0353647, "lng": 121.5658191, "place_id": "ChIJI60CsbCrQjQRnEk9sg-irz0"}, {"name": "好野吧Drink SPORT", "query": "好野吧Drink SPORT 台北", "address": "116, Taiwan, Taipei City, Wenshan District, Xianyan Rd, 79號1樓", "lat": 25.0004679, "lng": 121.5505884, "place_id": "ChIJxX3e0yCrQjQRGUxCnOPa5RU"}, {"name": "La Sa Mi Ya Izakaya Restaurant", "query": "拉撒咪呀居酒屋 台北", "address": "105, Taiwan, Taipei City, Songshan District, Section 5, Civic Blvd, 157號1樓", "lat": 25.0479898, "lng": 121.5644021, "place_id": "ChIJTUfFqZOrQjQRLBV4ksp9fCE"}, {"name": "ETNA", "query": "ETNA 台北", "address": "No. 40號, Section 1, Chang'an E Rd, Zhongshan District, Taipei City, Taiwan 10491", "lat": 25.0484356, "lng": 121.526969, "place_id": "ChIJsSlvO2ipQjQRQWPF0sBOIcA"}, {"name": "Learn Bar 學吧精釀", "query": "學吧精釀 台北", "address": "100, Taiwan, Taipei City, Zhongzheng District, Section 2, Xinyi Rd, 253號1樓", "lat": 25.0338644, "lng": 121.531387, "place_id": "ChIJB7IBH9-pQjQRL0n2iEDRAog"}, {"name": "Broby 柏比咖啡（松山機場總店）", "query": "柏比咖啡 台北", "address": "No. 7號, Lane 160, Section 3, Minquan E Rd, Songshan District, Taipei City, Taiwan 105", "lat": 25.0610602, "lng": 121.5480389, "place_id": "ChIJo_5hx-qrQjQRIHMDiDoplO0"}, {"name": "Bar Sunset", "query": "Bar Sunset 台北", "address": "110, Taiwan, Taipei City, Xinyi District, 和平東路三段329號", "lat": 25.0210806, "lng": 121.5562984, "place_id": "ChIJbaLX1SmrQjQRz49KMXxv2FM"}, {"name": "列特博運動健身機構 LabTurbo Sports", "query": "列特博運動健身機構 台北", "address": "No. 700號, Daye Rd, Beitou District, Taipei City, Taiwan 112", "lat": 25.1370121, "lng": 121.5022063, "place_id": "ChIJcX3r17avQjQRW4Jsr8MV5Qg"}, {"name": "Joiny Taipei 招台北餐酒館", "query": "Joiny Taipei招台北", "address": "106, Taiwan, Taipei City, Da’an District, Section 1, Da'an Rd, 73號2樓", "lat": 25.0423018, "lng": 121.5463185, "place_id": "ChIJL8XQG96rQjQR3Pefv2NemuQ"}, {"name": "Yuan Yuan Izakaya Restaurant", "query": "鳶園居酒屋 台北", "address": "104, Taiwan, Taipei City, Zhongshan District, Jinzhou St, 320號1樓", "lat": 25.0601955, "lng": 121.5381699, "place_id": "ChIJGzdU3qarQjQRllVQL_3QW3s"}, {"name": "L'Unicorno Gelato 義式手工冰淇淋", "query": "L'Unicorno Gelato 義式手工冰淇淋 台北", "address": "No. 5號, Lane 68, Section 3, Xinsheng N Rd, Zhongshan District, Taipei City, Taiwan 104", "lat": 25.0662318, "lng": 121.5272704, "place_id": "ChIJ-R0Hcc-pQjQRe-nWk0cNfD0"}, {"name": "Freedom Bistro 享自由餐酒館", "query": "享自由餐酒館 台北", "address": "221, Taiwan, New Taipei City, Xizhi District, Section 2, Datong Rd, 458號1F", "lat": 25.0674796, "lng": 121.6598772, "place_id": "ChIJJwFGtDtTXTQRSNiZPmrWCl4"}, {"name": "Bakeries Lab.", "query": "釛匠研所 台北", "address": "No. 463號, Bannan Rd, Zhonghe District, New Taipei City, Taiwan 235", "lat": 25.0056323, "lng": 121.4888699, "place_id": "ChIJUeX3UWupQjQRwbBHnQJCr3g"}, {"name": "89 Loop Sports Bar", "query": "89 Loop Sports Bar 台北", "address": "100, Taiwan, Taipei City, Zhongzheng District, Section 4, Roosevelt Rd, 134號2 樓", "lat": 25.0129485, "lng": 121.5358227, "place_id": "ChIJedbePJCpQjQRrRcjOMhmHTE"}, {"name": "The Garden", "query": "THE garden 台北", "address": "No. 33號, Lane 10, Chengdu Rd, Wanhua District, Taipei City, Taiwan 108", "lat": 25.0417111, "lng": 121.5067799, "place_id": "ChIJz4xbvAmpQjQRhd0ch1fs3Is"}, {"name": "ぶたの道 臺北天母店 豬の道 Buta No Michi", "query": "豬の道 台北", "address": "111028, Taiwan, Taipei City, Shilin District, Shidong Rd, 80號一樓", "lat": 25.1119873, "lng": 121.5286184, "place_id": "ChIJPwjwTs6vQjQRQLLQ02FNTi0"}, {"name": "飽滿廚房 Ö! in DINER", "query": "飽滿廚房 台北", "address": "No. 19號, Kangding Rd, Wanhua District, Taipei City, Taiwan 108", "lat": 25.0453111, "lng": 121.5032595, "place_id": "ChIJJ_sWeTapQjQRU1sXSmlY8c0"}, {"name": "Feeling Bar 調酒專賣店｜士林店", "query": "Feeling Bar 台北", "address": "No. 110號, Danan Rd, Shilin District, Taipei City, Taiwan 111", "lat": 25.0896983, "lng": 121.5238485, "place_id": "ChIJd0e9joqvQjQRdokx2n5h3aw"}, {"name": "Nowhere Taipei Mexican Bistro", "query": "Nowhere Taipei PUB", "address": "No. 16號, Section 1, Chengde Rd, Datong District, Taipei City, Taiwan 10349", "lat": 25.0503058, "lng": 121.5166241, "place_id": "ChIJOeebQ8SpQjQR_H9uFjAqnzQ"}, {"name": "板石 Slate cafe｜國聯大飯店", "query": "板石咖啡廳 台北", "address": "106, Taiwan, Taipei City, Da’an District, Guangfu S Rd, 200號1樓", "lat": 25.0421538, "lng": 121.5573123, "place_id": "ChIJeQV6HMerQjQR5SBpP7W5fik"}, {"name": "Sit & Enjoy Cafe", "query": "就坐SIT&ENJOY 台北", "address": "103, Taiwan, Taipei City, Datong District, Minzu W Rd, 203號一樓", "lat": 25.0687688, "lng": 121.5144749, "place_id": "ChIJC4P6dQCpQjQRiQk4FcA7pYk"}, {"name": "Tempo House Restaurant & Bar｜餐廳｜餐酒館｜精釀啤酒｜咖啡廳｜下午茶｜場地租借｜精緻外燴｜派對｜會議便當", "query": "Tempo House 台北", "address": "No. 12號, Section 2, Jianguo N Rd, Zhongshan District, Taipei City, Taiwan 10491", "lat": 25.0526627, "lng": 121.5364559, "place_id": "ChIJXw8hJfSpQjQR_1di_nK_EX8"}, {"name": "AToMic(桌遊/電玩/餐酒/場租)", "query": "AToMic 桌遊餐酒 台北", "address": "108, Taiwan, Taipei City, Wanhua District, Section 2, Guiyang St, 49號1樓", "lat": 25.0397922, "lng": 121.5046176, "place_id": "ChIJP24HckKpQjQRVeoIRrFcevI"}];
 
-        function initMap() {
-            var map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 13,
-                mapTypeControl: true,
-                streetViewControl: false,
-            });
-            var bounds = new google.maps.LatLngBounds();
-            var markers = [];
-            var infoWindows = [];
+        function clearMarkers() {
+            gMarkers.forEach(function(m) { m.setMap(null); });
+            gMarkers = [];
+            gInfoWindows = [];
+        }
 
-            PLACES.forEach(function(p, i) {
+        function renderPlaces(places) {
+            clearMarkers();
+            var bounds = new google.maps.LatLngBounds();
+
+            places.forEach(function(p, i) {
                 var marker = new google.maps.Marker({
                     position: { lat: p.lat, lng: p.lng },
-                    map: map,
+                    map: gMap,
                     title: p.name,
                     label: { text: String(i + 1), color: "white", fontWeight: "bold" }
                 });
@@ -104,26 +150,28 @@
                 var infoWindow = new google.maps.InfoWindow({ content: infoContent });
 
                 marker.addListener('click', function() {
-                    infoWindows.forEach(function(iw) { iw.close(); });
-                    infoWindow.open(map, marker);
+                    gInfoWindows.forEach(function(iw) { iw.close(); });
+                    infoWindow.open(gMap, marker);
                 });
 
-                markers.push(marker);
-                infoWindows.push(infoWindow);
+                gMarkers.push(marker);
+                gInfoWindows.push(infoWindow);
                 bounds.extend(marker.getPosition());
             });
 
-            map.fitBounds(bounds, { padding: 50 });
+            if (places.length > 0) {
+                gMap.fitBounds(bounds, { padding: 50 });
+            }
 
-            // Build sidebar
-            document.getElementById('sidebar-title').textContent = '📍 ' + PLACES.length + ' 個地點';
+            document.getElementById('sidebar-title').textContent = places.length + ' 個地點';
             var list = document.getElementById('sidebar-list');
-            PLACES.forEach(function(p, i) {
+            list.innerHTML = '';
+            places.forEach(function(p, i) {
                 var item = document.createElement('div');
                 item.className = 'place-item';
                 item.onclick = function() {
-                    google.maps.event.trigger(markers[i], 'click');
-                    map.panTo(markers[i].getPosition());
+                    google.maps.event.trigger(gMarkers[i], 'click');
+                    gMap.panTo(gMarkers[i].getPosition());
                 };
                 var num = document.createElement('span');
                 num.className = 'place-number';
@@ -142,7 +190,67 @@
                 list.appendChild(item);
             });
         }
+
+        function searchPlaces() {
+            var input = document.getElementById('search-input').value.trim();
+            if (!input) return;
+
+            var queries = input.split('\n').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+            if (queries.length === 0) return;
+
+            var btn = document.getElementById('search-btn');
+            var status = document.getElementById('search-status');
+            btn.disabled = true;
+            btn.textContent = '查詢中...';
+            status.textContent = '正在查詢 ' + queries.length + ' 個地點...';
+
+            var results = [];
+            var completed = 0;
+            var total = queries.length;
+
+            queries.forEach(function(query, idx) {
+                setTimeout(function() {
+                    gService.textSearch({ query: query }, function(res, st) {
+                        completed++;
+                        if (st === google.maps.places.PlacesServiceStatus.OK && res.length > 0) {
+                            var r = res[0];
+                            results.push({
+                                name: r.name,
+                                query: query,
+                                address: r.formatted_address || '',
+                                lat: r.geometry.location.lat(),
+                                lng: r.geometry.location.lng(),
+                                place_id: r.place_id,
+                                _idx: idx
+                            });
+                            status.textContent = '已找到 ' + results.length + '/' + total + '...';
+                        } else {
+                            status.textContent = '找不到: ' + query + ' (' + completed + '/' + total + ')';
+                        }
+
+                        if (completed === total) {
+                            results.sort(function(a, b) { return a._idx - b._idx; });
+                            PLACES = results;
+                            renderPlaces(PLACES);
+                            btn.disabled = false;
+                            btn.textContent = '查詢地點';
+                            status.textContent = '完成！找到 ' + results.length + '/' + total + ' 個地點';
+                        }
+                    });
+                }, idx * 300);
+            });
+        }
+
+        function initMap() {
+            gMap = new google.maps.Map(document.getElementById('map'), {
+                zoom: 13,
+                mapTypeControl: true,
+                streetViewControl: false,
+            });
+            gService = new google.maps.places.PlacesService(gMap);
+            renderPlaces(PLACES);
+        }
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA71540fEoWUBblV4Ts3ON1gw1n-KOtFo8&callback=initMap"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA71540fEoWUBblV4Ts3ON1gw1n-KOtFo8&libraries=places&callback=initMap"></script>
 </body>
 </html>
